@@ -6,7 +6,7 @@ license = { file = "LICENSE" }
 dependencies = ["markdownify"]
 
 [project.urls]
-Repository = "https://github.com/hayden-fr/ComfyUI-Model-Manager"
+Repository = "https://github.com/hayden-cn/ComfyUI-Model-Manager"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]

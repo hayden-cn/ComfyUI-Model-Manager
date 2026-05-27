@@ -8,8 +8,8 @@ Designed to support desktop, mobile and multi-screen devices.
 
 There are three installation methods, choose one
 
-1. Clone the repository: `git clone https://github.com/hayden-fr/ComfyUI-Model-Manager.git` to your ComfyUI `custom_nodes` folder
-2. Download the [latest release](https://github.com/hayden-fr/ComfyUI-Model-Manager/releases/latest/download/dist.tar.gz) and extract it to your ComfyUI `custom_nodes` folder
+1. Clone the repository: `git clone https://github.com/hayden-cn/ComfyUI-Model-Manager.git` to your ComfyUI `custom_nodes` folder
+2. Download the [latest release](https://github.com/hayden-cn/ComfyUI-Model-Manager/releases/latest/download/dist.tar.gz) and extract it to your ComfyUI `custom_nodes` folder
 3. Use comfy cli: `comfy node registry-install comfyui-model-manager`
 
 ## Features
