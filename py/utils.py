@@ -192,6 +192,10 @@ def get_full_path(model_type: str, path_index: int, filename: str):
         raise RuntimeError(f"PathIndex {path_index} is not in {model_type}")
     base_path = folders[path_index]
     full_path = join_path(base_path, filename)
+    real_base = os.path.realpath(base_path)
+    real_full = os.path.realpath(full_path)
+    if not (real_full == real_base or real_full.startswith(real_base + os.sep)):
+        raise RuntimeError(f"Path traversal detected: filename escapes model directory")
     return full_path
 
 
@@ -199,11 +203,7 @@ def get_valid_full_path(model_type: str, path_index: int, filename: str):
     """
     Like get_full_path but it will check whether the file is valid.
     """
-    folders = resolve_model_base_paths().get(model_type, [])
-    if not path_index < len(folders):
-        raise RuntimeError(f"PathIndex {path_index} is not in {model_type}")
-    base_path = folders[path_index]
-    full_path = join_path(base_path, filename)
+    full_path = get_full_path(model_type, path_index, filename)
     if os.path.isfile(full_path):
         return full_path
     elif os.path.islink(full_path):
