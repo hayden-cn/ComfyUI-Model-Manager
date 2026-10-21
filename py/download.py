@@ -13,86 +13,41 @@ from dataclasses import dataclass
 from aiohttp import web
 
 
+from ._dataclass_utils import FrontendSharedDataclassABC
 from . import config
 from . import utils
 from . import thread
 
 
 @dataclass
-class TaskStatus:
-    taskId: str
-    type: str
-    fullname: str
-    preview: str
+class TaskStatus(FrontendSharedDataclassABC):
+    taskId: Optional[str] = None
+    type: Optional[str] = None
+    fullname: Optional[str] = None
+    preview: Optional[str] = None
     status: Literal["pause", "waiting", "doing"] = "pause"
-    platform: Union[str, None] = None
+    platform: Optional[str] = None
     downloadedSize: float = 0
     totalSize: float = 0
     progress: float = 0
     bps: float = 0
     error: Optional[str] = None
 
-    def __init__(self, **kwargs):
-        self.taskId = kwargs.get("taskId", None)
-        self.type = kwargs.get("type", None)
-        self.fullname = kwargs.get("fullname", None)
-        self.preview = kwargs.get("preview", None)
-        self.status = kwargs.get("status", "pause")
-        self.platform = kwargs.get("platform", None)
-        self.downloadedSize = kwargs.get("downloadedSize", 0)
-        self.totalSize = kwargs.get("totalSize", 0)
-        self.progress = kwargs.get("progress", 0)
-        self.bps = kwargs.get("bps", 0)
-        self.error = kwargs.get("error", None)
-
-    def to_dict(self):
-        return {
-            "taskId": self.taskId,
-            "type": self.type,
-            "fullname": self.fullname,
-            "preview": self.preview,
-            "status": self.status,
-            "platform": self.platform,
-            "downloadedSize": self.downloadedSize,
-            "totalSize": self.totalSize,
-            "progress": self.progress,
-            "bps": self.bps,
-            "error": self.error,
-        }
-
 
 @dataclass
-class TaskContent:
-    type: str
-    pathIndex: int
-    fullname: str
-    description: str
-    downloadPlatform: str
-    downloadUrl: str
-    sizeBytes: float
+class TaskContent(FrontendSharedDataclassABC):
+    type: Optional[str] = None
+    pathIndex: int = 0
+    fullname: Optional[str] = None
+    description: Optional[str] = None
+    downloadPlatform: Optional[str] = None
+    downloadUrl: Optional[str] = None
+    sizeBytes: float = 0.0
     hashes: Optional[dict[str, str]] = None
 
-    def __init__(self, **kwargs):
-        self.type = kwargs.get("type", None)
-        self.pathIndex = int(kwargs.get("pathIndex", 0))
-        self.fullname = kwargs.get("fullname", None)
-        self.description = kwargs.get("description", None)
-        self.downloadPlatform = kwargs.get("downloadPlatform", None)
-        self.downloadUrl = kwargs.get("downloadUrl", None)
-        self.sizeBytes = float(kwargs.get("sizeBytes", 0))
-        self.hashes = kwargs.get("hashes", None)
-
-    def to_dict(self):
-        return {
-            "type": self.type,
-            "pathIndex": self.pathIndex,
-            "fullname": self.fullname,
-            "description": self.description,
-            "downloadPlatform": self.downloadPlatform,
-            "downloadUrl": self.downloadUrl,
-            "sizeBytes": self.sizeBytes,
-            "hashes": self.hashes,
-        }
+    def __post_init__(self):
+        self.pathIndex = int(self.pathIndex)
+        self.sizeBytes = float(self.sizeBytes)
 
 
 class ApiKey:
@@ -251,7 +206,7 @@ class ModelDownload:
         task_content = utils.load_dict_pickle_file(task_file)
         if isinstance(task_content, TaskContent):
             return task_content
-        return TaskContent(**task_content)
+        return TaskContent.unsafe_init(**task_content)
 
     def get_task_status(self, task_id: str):
         task_status = self.download_model_task_status.get(task_id, None)
