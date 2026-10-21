@@ -568,3 +568,14 @@ def calculate_sha256(path, buffer_size=1024 * 1024):
                 break
             sha256.update(data)
     return sha256.hexdigest()
+
+
+def format_sequence_with_and(*values, last_separator=' and ') -> str:
+    if not values:
+        return ''
+    values = [str(x) for x in values]
+    last = values.pop()
+    if not values:
+        return last
+    comma_separated = ', '.join(values)
+    return last_separator.join([comma_separated, last])

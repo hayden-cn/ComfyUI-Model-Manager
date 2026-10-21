@@ -9,7 +9,7 @@
   "downloadTask": "Download Task",
   "createDownloadTask": "Create Download Task",
   "parseModelUrl": "Parse Model URL",
-  "pleaseInputModelUrl": "Input a URL from civitai.com, huggingface.co, or direct file link (.safetensors, .ckpt, etc.)",
+  "pleaseInputModelUrl": "Input a URL from civitai.com, civitai.red, huggingface.co, or direct file link (.safetensors, .ckpt, etc.)",
   "selectModelTypeForDirect": "Select the folder/type for this model",
   "cancel": "Cancel",
   "save": "Save",

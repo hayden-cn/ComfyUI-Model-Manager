@@ -38,14 +38,20 @@ class ModelSearcher(ABC):
 
 class UnknownWebsiteSearcher(ModelSearcher):
     def search_by_url(self, url: str):
-        raise RuntimeError(f"Unknown Website, please input a URL from huggingface.co or civitai.com.")
+        valid_hosts = utils.format_sequence_with_and(*_hostname_to_searcher.keys(), last_separator=' or ')
+        raise RuntimeError(f"Unknown Website: please input a URL from {valid_hosts}.")
 
     def search_by_hash(self, hash: str):
-        raise RuntimeError(f"Unknown Website, unable to search with hash value.")
+        raise RuntimeError(f"Unknown Website: unable to search with hash value.")
 
 
 class CivitaiModelSearcher(ModelSearcher):
+    @classmethod
+    def hostname(cls) -> str:
+        return 'civitai.com'
+
     def search_by_url(self, url: str):
+        hostname = self.hostname()
         parsed_url = urlparse(url)
 
         pathname = parsed_url.path
@@ -58,7 +64,7 @@ class CivitaiModelSearcher(ModelSearcher):
         if not model_id:
             return []
 
-        response = requests.get(f"https://civitai.com/api/v1/models/{model_id}")
+        response = requests.get(f"https://{hostname}/api/v1/models/{model_id}")
         response.raise_for_status()
         res_data: dict = response.json()
 
@@ -85,7 +91,7 @@ class CivitaiModelSearcher(ModelSearcher):
 
                 metadata_info = {
                     "website": "Civitai",
-                    "modelPage": f"https://civitai.com/models/{model_id}?modelVersionId={version.get('id')}",
+                    "modelPage": f"https://{hostname}/models/{model_id}?modelVersionId={version.get('id')}",
                     "author": res_data.get("creator", {}).get("username", None),
                     "baseModel": version.get("baseModel"),
                     "hashes": file.get("hashes"),
@@ -136,14 +142,15 @@ class CivitaiModelSearcher(ModelSearcher):
         if not hash:
             raise RuntimeError(f"Hash value is empty.")
 
-        response = requests.get(f"https://civitai.com/api/v1/model-versions/by-hash/{hash}")
+        hostname = self.hostname()
+        response = requests.get(f"https://{hostname}/api/v1/model-versions/by-hash/{hash}")
         response.raise_for_status()
         version: dict = response.json()
 
         model_id = version.get("modelId")
         version_id = version.get("id")
 
-        model_page = f"https://civitai.com/models/{model_id}?modelVersionId={version_id}"
+        model_page = f"https://{hostname}/models/{model_id}?modelVersionId={version_id}"
 
         models = self.search_by_url(model_page)
 
@@ -165,6 +172,12 @@ class CivitaiModelSearcher(ModelSearcher):
             "unknown": "",
         }
         return map_legacy.get(model_type, f"{model_type.lower()}s")
+
+
+class CivitaiRedModelSearcher(CivitaiModelSearcher):
+    @classmethod
+    def hostname(cls) -> str:
+        return 'civitai.red'
 
 
 class HuggingfaceModelSearcher(ModelSearcher):
@@ -575,10 +588,13 @@ class Information:
             utils.print_debug(str(e))
 
     def get_model_searcher_by_url(self, url: str) -> ModelSearcher:
-        parsed_url = urlparse(url)
-        host_name = parsed_url.hostname
-        if host_name == "civitai.com":
-            return CivitaiModelSearcher()
-        elif host_name == "huggingface.co":
-            return HuggingfaceModelSearcher()
-        return UnknownWebsiteSearcher()
+        hostname = urlparse(url).hostname
+        searcher = _hostname_to_searcher.get(hostname, UnknownWebsiteSearcher)
+        return searcher()
+
+
+_hostname_to_searcher: dict[str, type[ModelSearcher]] = {
+    'civitai.com': CivitaiModelSearcher,
+    'civitai.red': CivitaiRedModelSearcher,
+    'huggingface.co': HuggingfaceModelSearcher,
+}
