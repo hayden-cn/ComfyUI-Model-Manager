@@ -10,24 +10,34 @@ import os
 from .py import config
 from .py import utils
 
+
+def _install_requirements(extension_uri: str, requirements='requirements.txt') -> None:
+    """
+    Install the extension's dependencies from ``requirements.txt``.
+
+    Lex-DRL: why is this code even here? Comfy Manager already does dependency resolution,
+    and does it smarter / more reliably.
+    """
+    requirements_path = utils.join_path(extension_uri, requirements)
+
+    with open(requirements_path, "r", encoding="utf-8") as f:
+        requirements = f.readlines()
+
+    requirements = [x.strip() for x in requirements]
+    requirements = [x for x in requirements if not x.startswith("#")]
+
+    uninstalled_package = [p for p in requirements if not utils.is_installed(p)]
+
+    if len(uninstalled_package) > 0:
+        utils.print_info(f"Install dependencies...")
+        for p in uninstalled_package:
+            utils.pip_install(p)
+
+
 extension_uri = utils.normalize_path(os.path.dirname(__file__))
 
 # Install requirements
-requirements_path = utils.join_path(extension_uri, "requirements.txt")
-
-with open(requirements_path, "r", encoding="utf-8") as f:
-    requirements = f.readlines()
-
-requirements = [x.strip() for x in requirements]
-requirements = [x for x in requirements if not x.startswith("#")]
-
-uninstalled_package = [p for p in requirements if not utils.is_installed(p)]
-
-if len(uninstalled_package) > 0:
-    utils.print_info(f"Install dependencies...")
-    for p in uninstalled_package:
-        utils.pip_install(p)
-
+_install_requirements(extension_uri)
 
 # Init config settings
 config.extension_uri = extension_uri
