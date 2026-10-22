@@ -445,7 +445,7 @@ class ModelDownload:
 
             # A temp file bigger than the remote resource is the residue of an append onto a partial
             # file, which is what happened when a server answered a Range request with 200.
-            # Request that range again would be rejected with 416, so restart from scratch instead.
+            # Requesting that range again would be rejected with 416, so restart from scratch instead.
             if total_size > 0 and downloaded_size > total_size:
                 downloaded_size = 0
                 file_mode = "wb"
@@ -491,10 +491,14 @@ class ModelDownload:
         # "content-range" ("bytes <start>-<end>/<total>"), not from "content-length".
         if response.status_code == 206:
             content_range = response.headers.get("content-range", "")
-            if "/" in content_range:
+            try:
                 response_total_size = float(content_range.rsplit("/", 1)[-1])
-            else:
-                response_total_size = downloaded_size + float(response.headers.get("content-length", 0))
+            except ValueError:
+                # The header is absent or carries an unknown total ("bytes <start>-<end>/*"), which
+                # RFC 9110 allows. A remaining length can complete the total; without one, keep the
+                # size we already had so a truncated temp file is never mistaken for a finished file.
+                remaining = float(response.headers.get("content-length", 0))
+                response_total_size = downloaded_size + remaining if remaining > 0 else total_size
         else:
             response_total_size = float(response.headers.get("content-length", 0))
             # A 200 answer to a Range request means the server ignored the range: the body carries the
