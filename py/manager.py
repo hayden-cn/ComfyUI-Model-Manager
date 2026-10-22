@@ -1,4 +1,5 @@
 import os
+import asyncio
 import folder_paths
 from aiohttp import web
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -86,7 +87,8 @@ class ModelManager:
                 model_path = utils.get_valid_full_path(model_type, path_index, filename)
                 if model_path is None:
                     raise RuntimeError(f"File {filename} not found")
-                self.update_model(model_path, model_data)
+                # Preview downloads happen in here: off the loop, or every other request waits.
+                await asyncio.to_thread(self.update_model, model_path, model_data)
                 return web.json_response({"success": True})
             except Exception as e:
                 error_msg = f"Update model failed: {str(e)}"

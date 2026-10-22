@@ -1,6 +1,7 @@
 import os
 import uuid
 import time
+import asyncio
 import requests
 import base64
 
@@ -281,7 +282,8 @@ class ModelDownload:
 
         try:
             preview_file = task_data.pop("previewFile", None)
-            utils.save_model_preview(task_path, preview_file, download_platform)
+            # Remote preview fetch: keep it off the event loop.
+            await asyncio.to_thread(utils.save_model_preview, task_path, preview_file, download_platform)
             self.set_task_content(task_id, task_data)
             task_status = TaskStatus(
                 taskId=task_id,
