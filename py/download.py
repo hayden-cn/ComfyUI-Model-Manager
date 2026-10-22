@@ -436,12 +436,22 @@ class ModelDownload:
         download_path = utils.get_download_path()
         download_tmp_file = utils.join_path(download_path, f"{task_id}.download")
 
+        file_mode = "ab"
         downloaded_size = 0
+        total_size = task_content.sizeBytes
+
         if os.path.isfile(download_tmp_file):
             downloaded_size = os.path.getsize(download_tmp_file)
-            headers["Range"] = f"bytes={downloaded_size}-"
 
-        total_size = task_content.sizeBytes
+            # A temp file bigger than the remote resource is the residue of an append onto a partial
+            # file, which is what happened when a server answered a Range request with 200.
+            # Request that range again would be rejected with 416, so restart from scratch instead.
+            if total_size > 0 and downloaded_size > total_size:
+                downloaded_size = 0
+                file_mode = "wb"
+
+            if downloaded_size > 0:
+                headers["Range"] = f"bytes={downloaded_size}-"
 
         if total_size > 0 and downloaded_size == total_size:
             await download_complete()
@@ -455,6 +465,7 @@ class ModelDownload:
             headers=headers,
             stream=True,
             allow_redirects=True,
+            timeout=(10, 30),
         )
 
         if response.status_code not in (200, 206):
@@ -476,15 +487,32 @@ class ModelDownload:
         # When parsing model information from HuggingFace API,
         # the file size was not found and needs to be obtained from the response header.
         # Fixed issue #169. Some model information from Civitai, providing the wrong file size
-        response_total_size = float(response.headers.get("content-length", 0))
-        if total_size == 0 or total_size != response_total_size:
+        # On 206 the body is only the remaining part, so the whole size comes from
+        # "content-range" ("bytes <start>-<end>/<total>"), not from "content-length".
+        if response.status_code == 206:
+            content_range = response.headers.get("content-range", "")
+            if "/" in content_range:
+                response_total_size = float(content_range.rsplit("/", 1)[-1])
+            else:
+                response_total_size = downloaded_size + float(response.headers.get("content-length", 0))
+        else:
+            response_total_size = float(response.headers.get("content-length", 0))
+            # A 200 answer to a Range request means the server ignored the range: the body carries the
+            # whole file, so it has to replace the partial file instead of being appended to it.
+            if downloaded_size > 0:
+                file_mode = "wb"
+                downloaded_size = 0
+                last_downloaded_size = 0
+                last_update_time = time.time()
+
+        if total_size == 0 or (response_total_size > 0 and total_size != response_total_size):
             total_size = response_total_size
             task_content.sizeBytes = total_size
             task_status.totalSize = total_size
             self.set_task_content(task_id, task_content)
             await utils.send_json("update_download_task", task_content.to_dict())
 
-        with open(download_tmp_file, "ab") as f:
+        with open(download_tmp_file, file_mode) as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if task_status.status == "pause":
                     break
