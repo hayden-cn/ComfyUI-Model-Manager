@@ -3,6 +3,7 @@ import re
 import uuid
 import math
 import yaml
+import asyncio
 import requests
 import markdownify
 
@@ -20,6 +21,11 @@ from io import BytesIO
 from . import utils
 from . import config
 from . import thread
+
+
+# Connect and read timeouts for the model-information APIs. Without them a black-holed host keeps
+# the calling thread, and the search never settles into either a result or an error.
+API_TIMEOUT = (10, 30)
 
 
 class ModelSearcher(ABC):
@@ -64,7 +70,7 @@ class CivitaiModelSearcher(ModelSearcher):
         if not model_id:
             return []
 
-        response = requests.get(f"https://{hostname}/api/v1/models/{model_id}")
+        response = requests.get(f"https://{hostname}/api/v1/models/{model_id}", timeout=API_TIMEOUT)
         response.raise_for_status()
         res_data: dict = response.json()
 
@@ -143,7 +149,7 @@ class CivitaiModelSearcher(ModelSearcher):
             raise RuntimeError(f"Hash value is empty.")
 
         hostname = self.hostname()
-        response = requests.get(f"https://{hostname}/api/v1/model-versions/by-hash/{hash}")
+        response = requests.get(f"https://{hostname}/api/v1/model-versions/by-hash/{hash}", timeout=API_TIMEOUT)
         response.raise_for_status()
         version: dict = response.json()
 
@@ -191,7 +197,7 @@ class HuggingfaceModelSearcher(ModelSearcher):
         model_id = f"{space}/{name}"
         rest_pathname = "/".join(rest_paths)
 
-        response = requests.get(f"https://huggingface.co/api/models/{model_id}")
+        response = requests.get(f"https://huggingface.co/api/models/{model_id}", timeout=API_TIMEOUT)
         response.raise_for_status()
         res_data: dict = response.json()
 
@@ -321,7 +327,8 @@ class Information:
             """
             try:
                 model_page = request.query.get("model-page", None)
-                result = self.fetch_model_info(model_page)
+                # Blocking IO: on the event loop this stalls every other request until it settles.
+                result = await asyncio.to_thread(self.fetch_model_info, model_page)
                 return web.json_response({"success": True, "data": result})
             except Exception as e:
                 error_msg = f"Fetch model info failed: {str(e)}"
