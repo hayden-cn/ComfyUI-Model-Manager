@@ -63,7 +63,7 @@ jobs:
           pnpm run build
           tar -czf dist.tar.gz assets/ py/ web/ __init__.py LICENSE pyproject.toml requirements.txt
 
-      - name: Create release draft
+      - name: Create release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,7 +72,7 @@ jobs:
             dist.tar.gz
           name: ${{ steps.current_version.outputs.version }}
           tag_name: v${{ steps.current_version.outputs.version }}
-          draft: true
+          generate_release_notes: true
           make_latest: true
 
       - name: Prepare publish custom node to registry
