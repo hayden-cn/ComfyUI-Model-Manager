@@ -494,9 +494,11 @@ class ModelDownload:
             try:
                 response_total_size = float(content_range.rsplit("/", 1)[-1])
             except ValueError:
-                # Either the header is absent or the total is unknown ("bytes <start>-<end>/*"),
-                # which RFC 9110 allows; the remaining length is all that can be known.
-                response_total_size = downloaded_size + float(response.headers.get("content-length", 0))
+                # The header is absent or carries an unknown total ("bytes <start>-<end>/*"), which
+                # RFC 9110 allows. A remaining length can complete the total; without one, keep the
+                # size we already had so a truncated temp file is never mistaken for a finished file.
+                remaining = float(response.headers.get("content-length", 0))
+                response_total_size = downloaded_size + remaining if remaining > 0 else total_size
         else:
             response_total_size = float(response.headers.get("content-length", 0))
             # A 200 answer to a Range request means the server ignored the range: the body carries the
