@@ -21,6 +21,9 @@ from . import config
 VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.ogv']
 IMAGE_EXTENSIONS = ['.webp', '.png', '.jpg', '.jpeg', '.gif', '.bmp']
 
+# (connect, read); without it a host that accepts and never answers holds the calling thread forever.
+REMOTE_RESOURCE_TIMEOUT = (10, 30)  # the shape download_model_file already uses for model fetches
+
 # Preview extensions in priority order (videos first, then images)
 PREVIEW_EXTENSIONS = ['.webm', '.mp4', '.webp', '.png', '.jpg', '.jpeg', '.gif', '.bmp']
 
@@ -343,7 +346,7 @@ def save_model_preview(model_path: str, file_or_url: Any, platform: Optional[str
         url = file_or_url
 
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=REMOTE_RESOURCE_TIMEOUT)
             response.raise_for_status()
             
             # Determine content type from response headers or URL extension

@@ -23,11 +23,6 @@ from . import config
 from . import thread
 
 
-# Connect and read timeouts for the model-information APIs. Without them a black-holed host keeps
-# the calling thread, and the search never settles into either a result or an error.
-API_TIMEOUT = (10, 30)
-
-
 class ModelSearcher(ABC):
     """
     Abstract class for model searcher.
@@ -70,7 +65,7 @@ class CivitaiModelSearcher(ModelSearcher):
         if not model_id:
             return []
 
-        response = requests.get(f"https://{hostname}/api/v1/models/{model_id}", timeout=API_TIMEOUT)
+        response = requests.get(f"https://{hostname}/api/v1/models/{model_id}", timeout=utils.REMOTE_RESOURCE_TIMEOUT)
         response.raise_for_status()
         res_data: dict = response.json()
 
@@ -149,7 +144,7 @@ class CivitaiModelSearcher(ModelSearcher):
             raise RuntimeError(f"Hash value is empty.")
 
         hostname = self.hostname()
-        response = requests.get(f"https://{hostname}/api/v1/model-versions/by-hash/{hash}", timeout=API_TIMEOUT)
+        response = requests.get(f"https://{hostname}/api/v1/model-versions/by-hash/{hash}", timeout=utils.REMOTE_RESOURCE_TIMEOUT)
         response.raise_for_status()
         version: dict = response.json()
 
@@ -197,7 +192,7 @@ class HuggingfaceModelSearcher(ModelSearcher):
         model_id = f"{space}/{name}"
         rest_pathname = "/".join(rest_paths)
 
-        response = requests.get(f"https://huggingface.co/api/models/{model_id}", timeout=API_TIMEOUT)
+        response = requests.get(f"https://huggingface.co/api/models/{model_id}", timeout=utils.REMOTE_RESOURCE_TIMEOUT)
         response.raise_for_status()
         res_data: dict = response.json()
 
