@@ -126,7 +126,8 @@ export const useModels = defineStore('models', (store) => {
     // Check current name and pathIndex
     if (
       model.subFolder !== data.subFolder ||
-      model.pathIndex !== data.pathIndex
+      model.pathIndex !== data.pathIndex ||
+      model.basename !== data.basename
     ) {
       oldKey = genModelKey(model)
       updateData.set('type', data.type)
