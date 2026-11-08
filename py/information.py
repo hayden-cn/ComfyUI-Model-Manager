@@ -111,11 +111,11 @@ class CivitaiModelSearcher(ModelSearcher):
                 description_parts.append("")
                 description_parts.append(f"# About this version")
                 description_parts.append("")
-                description_parts.append(markdownify.markdownify(version.get("description", "<p>No description about this version</p>")).strip())
+                description_parts.append(markdownify.markdownify(version.get("description") or "<p>No description about this version</p>").strip())
                 description_parts.append("")
                 description_parts.append(f"# {res_data.get('name')}")
                 description_parts.append("")
-                description_parts.append(markdownify.markdownify(res_data.get("description", "<p>No description about this model</p>")).strip())
+                description_parts.append(markdownify.markdownify(res_data.get("description") or "<p>No description about this model</p>").strip())
                 description_parts.append("")
 
                 model = {
