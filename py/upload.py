@@ -8,6 +8,37 @@ from aiohttp import web
 from . import utils
 
 
+def validate_upload_path(file_folder: str, filename: str) -> str:
+    """
+    Validate upload path to prevent path traversal attacks.
+    Returns the safe full path if valid, raises RuntimeError otherwise.
+    """
+    if not filename or "/" in filename or "\\" in filename:
+        raise RuntimeError(f"Invalid filename: {filename}")
+
+    real_folder = os.path.realpath(file_folder)
+
+    allowed_bases = utils.resolve_model_base_paths()
+    is_allowed = False
+    for _model_type, base_paths in allowed_bases.items():
+        for base_path in base_paths:
+            real_base = os.path.realpath(base_path)
+            if real_folder == real_base or real_folder.startswith(real_base + os.sep):
+                is_allowed = True
+                break
+        if is_allowed:
+            break
+
+    if not is_allowed:
+        raise RuntimeError(f"Upload folder not in allowed paths: {file_folder}")
+
+    full_path = os.path.realpath(os.path.join(real_folder, filename))
+    if not (full_path == real_folder or full_path.startswith(real_folder + os.sep)):
+        raise RuntimeError(f"Path traversal detected in filename: {filename}")
+
+    return full_path
+
+
 class ModelUploader:
     def add_routes(self, routes):
 
@@ -43,6 +74,7 @@ class ModelUploader:
         uploaded_size = 0
         last_update_time = time.time()
         interval = 1.0
+        file_folder = None
 
         while True:
             part = await reader.next()
@@ -54,9 +86,11 @@ class ModelUploader:
                 file_folder = await part.text()
 
             if name == "file":
+                if not file_folder:
+                    raise RuntimeError("Missing required field: folder")
                 filename = part.filename
-                filepath = f"{file_folder}/{filename}"
-                tmp_filepath = f"{file_folder}/{filename}.tmp"
+                filepath = validate_upload_path(file_folder, filename)
+                tmp_filepath = filepath + ".tmp"
 
                 with open(tmp_filepath, "wb") as f:
                     while True:
