@@ -535,30 +535,6 @@ async def send_json(event: str, data: Any, sid: str = None):
     await config.serverInstance.send_json(event, data, sid)
 
 
-import sys
-import subprocess
-import importlib.util
-import importlib.metadata
-
-
-def is_installed(package_name: str):
-    try:
-        dist = importlib.metadata.distribution(package_name)
-    except importlib.metadata.PackageNotFoundError:
-        try:
-            spec = importlib.util.find_spec(package_name)
-        except ModuleNotFoundError:
-            return False
-
-        return spec is not None
-
-    return dist is not None
-
-
-def pip_install(package_name: str):
-    subprocess.run([sys.executable, "-m", "pip", "install", package_name], check=True)
-
-
 import hashlib
 
 
