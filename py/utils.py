@@ -326,6 +326,66 @@ from PIL import Image
 from io import BytesIO
 
 
+def _build_workflow_exif(image) -> bytes:
+    """Build EXIF bytes carrying ComfyUI workflow/prompt metadata, if present.
+
+    ComfyUI's frontend reads workflow metadata back from WebP files by parsing
+    ASCII EXIF tags whose values look like ``workflow:{...}`` / ``prompt:{...}``
+    (see ComfyUI_frontend src/scripts/metadata/webp.ts). Re-encoding a preview
+    to WebP with Pillow drops the PNG tEXt chunks that hold this metadata, which
+    breaks "load workflow" for uploaded preview images (issue #200).
+
+    This builds a minimal TIFF/EXIF block so the metadata survives the WebP
+    round-trip. Returns b"" when the image has no workflow/prompt to preserve,
+    so callers can keep the original save behaviour in that case.
+    """
+    text_fields = []
+    for key in ("workflow", "prompt"):
+        value = image.info.get(key)
+        if isinstance(value, bytes):
+            value = value.decode("utf-8", errors="replace")
+        if isinstance(value, str) and value:
+            text_fields.append((key, value))
+    if not text_fields:
+        return b""
+
+    entries = []
+    field_map = dict(text_fields)
+    for tag, key in zip((270, 305), ("workflow", "prompt")):
+        if key not in field_map:
+            continue
+        entries.append((tag, (key + ":" + field_map[key]).encode("utf-8") + b"\x00"))
+
+    count = len(entries)
+    ifd_offset = 8
+    data_offset = ifd_offset + 2 + count * 12 + 4
+
+    out = bytearray()
+    out += b"II" + struct.pack("<H", 42) + struct.pack("<I", ifd_offset)
+    out += struct.pack("<H", count)
+
+    offsets = {}
+    cursor = data_offset
+    for tag, raw in entries:
+        offsets[tag] = cursor
+        cursor += len(raw)
+    for tag, raw in entries:
+        out += struct.pack("<HHII", tag, 2, len(raw), offsets[tag])
+    out += struct.pack("<I", 0)
+    for tag, raw in entries:
+        out += raw
+    return bytes(out)
+
+
+def _save_image_preview(image, preview_path: str):
+    """Save an image preview as WebP, preserving embedded workflow metadata."""
+    exif = _build_workflow_exif(image)
+    if exif:
+        image.save(preview_path, "WEBP", exif=exif)
+    else:
+        image.save(preview_path, "WEBP")
+
+
 def remove_model_preview(model_path: str):
     """Remove all preview files for a model"""
     base_dirname = os.path.dirname(model_path)
@@ -368,7 +428,7 @@ def save_model_preview(model_path: str, file_or_url: Any, platform: Optional[str
                 # Default to image processing for unknown or image types
                 preview_path = _get_preview_path(model_path, ".webp")
                 image = Image.open(BytesIO(content))
-                image.save(preview_path, "WEBP")
+                _save_image_preview(image, preview_path)
 
         except Exception as e:
             print_error(f"Failed to download preview: {e}")
@@ -395,7 +455,7 @@ def save_model_preview(model_path: str, file_or_url: Any, platform: Optional[str
             # Convert image to webp
             preview_path = _get_preview_path(model_path, ".webp")
             image = Image.open(file_obj.file)
-            image.save(preview_path, "WEBP")
+            _save_image_preview(image, preview_path)
         else:
             raise RuntimeError(f"FileTypeError: expected image or video, got {content_type}")
 
