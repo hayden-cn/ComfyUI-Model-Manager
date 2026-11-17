@@ -44,6 +44,20 @@ function createVueApp(rootContainer: string | HTMLElement) {
 app.registerExtension({
   name: 'Comfy.ModelManager',
   setup() {
+    // ComfyUI frontend >=1.58 removed the global `.dark-theme` class and now
+    // sets `color-scheme` on <html>. Model Manager's Tailwind `dark:` variants
+    // and PrimeVue dark theme still rely on `.dark-theme`, so keep it in sync.
+    const syncDarkThemeClass = () => {
+      const isDark =
+        getComputedStyle(document.documentElement).colorScheme === 'dark'
+      document.documentElement.classList.toggle('dark-theme', isDark)
+    }
+    syncDarkThemeClass()
+    new MutationObserver(syncDarkThemeClass).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style'],
+    })
+
     const container = document.createElement('div')
     container.id = 'comfyui-model-manager'
     document.body.appendChild(container)
