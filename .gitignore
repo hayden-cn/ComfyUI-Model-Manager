@@ -200,3 +200,6 @@ config/
 
 # private info
 private.key
+
+# TypeScript incremental build cache
+*.tsbuildinfo
