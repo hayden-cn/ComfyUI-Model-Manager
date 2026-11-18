@@ -400,13 +400,33 @@ class Information:
             # Determine content type from the actual file
             content_type = utils.resolve_file_content_type(abs_path)
 
+            # Let the browser keep previews cached but revalidate them on every use,
+            # so a replaced preview shows up without a full page reload (issue #162).
+            cache_headers = {"Cache-Control": "no-cache"}
+
             if content_type == "video":
-                # Serve video files directly
-                return web.FileResponse(abs_path)
-            else:
-                # Serve image files (WebP or fallback images)
-                image_data = self.get_image_preview_data(abs_path)
-                return web.Response(body=image_data.getvalue(), content_type="image/webp")
+                # Serve video files directly.
+                # FileResponse derives its own ETag (mtime + size) and handles If-None-Match.
+                return web.FileResponse(abs_path, headers=cache_headers)
+
+            # Derive the ETag from the preview file itself, so an unchanged preview can be
+            # answered with 304 before the expensive WebP transcode.
+            try:
+                file_stat = os.stat(abs_path)
+                etag = f'"{file_stat.st_mtime_ns:x}-{file_stat.st_size:x}"'
+            except OSError:
+                etag = None
+
+            if etag:
+                cache_headers["ETag"] = etag
+                if_none_match = request.headers.get("If-None-Match", "")
+                candidates = [token.strip().removeprefix("W/") for token in if_none_match.split(",")]
+                if etag in candidates:
+                    return web.Response(status=304, headers=cache_headers)
+
+            # Serve image files (WebP or fallback images)
+            image_data = self.get_image_preview_data(abs_path)
+            return web.Response(body=image_data.getvalue(), content_type="image/webp", headers=cache_headers)
 
         @routes.get("/model-manager/preview/download/{filename}")
         async def read_download_preview(request):
@@ -419,7 +439,7 @@ class Information:
             if not os.path.isfile(preview_path):
                 preview_path = utils.join_path(extension_uri, "assets", "no-preview.png")
 
-            return web.FileResponse(preview_path)
+            return web.FileResponse(preview_path, headers={"Cache-Control": "no-cache"})
 
     def get_image_preview_data(self, filename: str):
         with Image.open(filename) as img:
